@@ -1,19 +1,20 @@
 const express = require('express');
 const path = require('path');
 const crypto = require('crypto');
-const mysql = require('mysql2/promise'); // 1. Impor mysql2 (versi promise)
+const mysql = require('mysql2/promise');
+require('dotenv').config(); // 1. BARU: Muat variabel dari file .env
 
 const app = express();
 const port = 3000;
 
 // --- Konfigurasi Database ---
-// 2. Buat "pool" koneksi. Pool lebih efisien daripada satu koneksi
-// TODO: Ganti ini dengan detail koneksi database Anda!
+// 2. BARU: Sesuaikan dengan nama variabel di file .env Anda
 const pool = mysql.createPool({
-    host: 'localhost',      // Biasanya 'localhost' atau 127.0.0.1
-    user: 'root',           // User database Anda
-    password: 'mysql123',           // Password database Anda
-    database: 'api_key',    // Nama database yang Anda buat
+    host: process.env.DB_HOST,
+    user: process.env.DB_USER,
+    password: process.env.DB_PASS,      // <-- Diubah dari DB_PASSWORD
+    database: process.env.DB_DATABASE,  // <-- Diubah dari DB_NAME
+    port: process.env.DB_PORT,        // <-- BARU: Menambahkan port 3308
     waitForConnections: true,
     connectionLimit: 10,
     queueLimit: 0
@@ -24,47 +25,40 @@ const pool = mysql.createPool({
     try {
         const connection = await pool.getConnection();
         console.log('Database berhasil terkoneksi!');
-        connection.release(); // Kembalikan koneksi ke pool
+        connection.release(); 
     } catch (error) {
+        // Ini adalah error yang Anda lihat di terminal
         console.error('Database GAGAL terkoneksi:', error.message);
     }
 })();
 
 
 // --- Middleware ---
-app.use(express.json()); // Mem-parsing JSON body
-app.use(express.static(path.join(__dirname, 'public'))); // Menyajikan file statis
+app.use(express.json()); 
+app.use(express.static(path.join(__dirname, 'public'))); 
 
 // --- Routes ---
 
-/**
- * Route (BARU) untuk menyimpan API key ke database
- */
-app.post('/create', async (req, res) => { // 3. Ubah menjadi 'async'
+app.post('/create', async (req, res) => {
     const { name } = req.body;
 
     if (!name) {
         return res.status(400).json({ error: 'Nama API key diperlukan' });
     }
 
-    // Buat API key
     const apiKey = 'sk_' + crypto.randomBytes(16).toString('hex');
 
-    let connection; // Deklarasikan di luar try-catch agar bisa diakses di 'finally'
+    let connection; 
 
     try {
-        // 4. Ambil koneksi dari pool
         connection = await pool.getConnection();
 
-        // 5. Jalankan query INSERT untuk menyimpan ke tabel 'keys'
-        // Menggunakan '?' (placeholders) untuk mencegah SQL Injection
-        const sql = "INSERT INTO `keys` (name, api_key) VALUES (?, ?)";
+        const sql = "INSERT INTO `data_api` (nama, api_key_hash) VALUES (?, ?)";
         const [result] = await connection.execute(sql, [name, apiKey]);
 
         console.log(`Berhasil membuat key: Nama = ${name}, Key = ${apiKey}`);
         console.log(`Disimpan ke database dengan ID: ${result.insertId}`);
 
-        // 6. Kirim key baru kembali ke client
         res.status(201).json({
             message: 'Key berhasil dibuat dan disimpan',
             name: name,
@@ -72,24 +66,18 @@ app.post('/create', async (req, res) => { // 3. Ubah menjadi 'async'
         });
 
     } catch (error) {
-        // Tangani jika ada error database
+        // Ini adalah error yang menyebabkan munculnya 'alert' di browser
         console.error('Error saat menyimpan ke database:', error);
         res.status(500).json({ error: 'Gagal menyimpan key ke database' });
 
     } finally {
-        // 7. Selalu kembalikan koneksi ke pool setelah selesai
         if (connection) {
             connection.release();
         }
     }
 });
 
-
-/**
- * Route (BARU) untuk memvalidasi API key dari database
- */
-app.post('/validate', async (req, res) => { // 8. Route validasi (async)
-    // Kita akan validasi berdasarkan api_key saja
+app.post('/validate', async (req, res) => {
     const { apiKey } = req.body;
 
     if (!apiKey) {
@@ -99,24 +87,19 @@ app.post('/validate', async (req, res) => { // 8. Route validasi (async)
     let connection;
 
     try {
-        // 9. Ambil koneksi dari pool
         connection = await pool.getConnection();
 
-        // 10. Jalankan query SELECT untuk mencari key
-        const sql = "SELECT * FROM `keys` WHERE api_key = ?";
+        const sql = "SELECT * FROM `data_api` WHERE api_key_hash = ?";
         const [rows] = await connection.execute(sql, [apiKey]);
 
-        // 11. Cek hasilnya
         if (rows.length > 0) {
-            // Key ditemukan dan valid
             console.log(`Validasi berhasil untuk key: ${apiKey}`);
             res.status(200).json({
                 valid: true,
                 message: 'API key valid.',
-                data: rows[0] // Kirim data key yg ditemukan (tanpa mengirim ulang key)
+                data: rows[0] 
             });
         } else {
-            // Key tidak ditemukan
             console.log(`Validasi GAGAL untuk key: ${apiKey}`);
             res.status(404).json({
                 valid: false,
