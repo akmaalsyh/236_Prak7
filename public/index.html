@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Generate API Key</title>
+    <style>
+        /* --- CSS Styling --- */
+        
+        /* Reset dan Tampilan Dasar Halaman */
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: #f0f2f5;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            color: #333;
+            padding: 20px;
+        }
+
+        /* Kontainer Utama (Card) */
+        .api-card {
+            background-color: #ffffff;
+            border-radius: 12px;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
+            padding: 32px;
+            width: 100%;
+            max-width: 450px;
+            text-align: center;
+            border-top: 5px solid #007bff;
+        }
+
+        .api-card h2 {
+            margin-bottom: 12px;
+            color: #1a1a1a;
+            font-weight: 600;
+        }
+
+        .api-card p {
+            margin-bottom: 24px;
+            color: #555;
+            font-size: 15px;
+        }
+
+        /* Wrapper untuk setiap grup input/label */
+        .input-group {
+            margin-bottom: 20px;
+            text-align: left; /* Label jadi rata kiri */
+        }
+        
+        .input-group label {
+            display: block;
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 8px;
+        }
+
+        /* Wrapper untuk Input dan Tombol (Copy) */
+        .input-wrapper {
+            position: relative;
+        }
+
+        /* Styling Input Field */
+        .api-input {
+            width: 100%;
+            padding: 14px 16px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            font-size: 16px;
+            transition: border-color 0.2s, box-shadow 0.2s;
+        }
+        
+        /* Beri padding kanan khusus untuk input yang ada tombol copy */
+        .api-input.with-button {
+             padding-right: 48px;
+        }
+
+        .api-input:focus {
+            outline: none;
+            border-color: #007bff;
+            box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.2);
+        }
+
+        /* Styling untuk input readonly (hasil generate) */
+        .api-input:read-only {
+            background-color: #f8f9fa;
+            color: #555;
+            font-family: 'Courier New', Courier, monospace;
+            cursor: default;
+        }
+
+        /* Tombol Copy (di dalam input) */
+        #copy-key-btn {
+            position: absolute;
+            top: 50%;
+            right: 14px;
+            transform: translateY(-50%);
+            background: none;
+            border: none;
+            cursor: pointer;
+            padding: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #777;
+        }
+
+        #copy-key-btn:hover {
+            color: #007bff;
+        }
+
+        /* Style untuk tombol "copied" */
+        #copy-key-btn.copied {
+            color: #28a745; /* Warna hijau sukses */
+        }
+        
+        /* Ikon SVG (dikelola oleh JavaScript) */
+        .icon {
+            width: 20px;
+            height: 20px;
+        }
+        
+        /* Tombol Submit (Generate) */
+        .submit-btn {
+            width: 100%;
+            padding: 14px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background-color 0.2s, transform 0.1s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px; /* Jarak antara ikon dan teks */
+        }
+        
+        /* Style saat tombol di-disable (loading) */
+        .submit-btn:disabled {
+            background-color: #a0a0a0;
+            cursor: wait;
+        }
+
+        .submit-btn:hover:not(:disabled) {
+            background-color: #0056b3;
+        }
+
+        .submit-btn:active:not(:disabled) {
+            transform: scale(0.98);
+        }
+        
+        /* Menyembunyikan elemen untuk aksesibilitas */
+        .sr-only {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            padding: 0;
+            margin: -1px;
+            overflow: hidden;
+            clip: rect(0, 0, 0, 0);
+            white-space: nowrap;
+            border-width: 0;
+        }
+
+    </style>
+</head>
+<body>
+
+    <div class="api-card">
+        <h2>Generate API Key</h2>
+        <p>Beri nama pada key Anda, lalu klik generate untuk membuat key baru.</p>
+        
+        <form id="api-generator-form">
+            
+            <div class="input-group">
+                <label for="api-key-name">Nama API Key</label>
+                <div class="input-wrapper">
+                    <input type="text" id="api-key-name" class="api-input" placeholder="Contoh: Kunci Tes Aplikasi" required>
+                </div>
+            </div>
+            
+            <div class="input-group">
+                <label for="generated-key-display">API Key Anda</label>
+                <div class="input-wrapper">
+                    <input type="text" id="generated-key-display" class="api-input with-button" placeholder="Key akan muncul di sini..." readonly>
+                    <button type="button" id="copy-key-btn" title="Salin ke Clipboard">
+                        <!-- Ikon diisi oleh JS -->
+                    </button>
+                </div>
+            </div>
+            
+            <button type="submit" id="generate-btn" class="submit-btn">
+                <!-- Konten diisi oleh JS -->
+                Generate API Key
+            </button>
+        </form>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            
+            // --- Elemen-elemen ---
+            const generatorForm = document.getElementById('api-generator-form');
+            const keyNameInput = document.getElementById('api-key-name');
+            const keyDisplay = document.getElementById('generated-key-display');
+            const generateBtn = document.getElementById('generate-btn');
+            const copyBtn = document.getElementById('copy-key-btn');
+
+            // --- Ikon SVG ---
+            const iconGenerate = `<svg class="icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 0 0-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 0 0 3.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 0 0 3.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 0 0-3.09 3.09ZM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 0 0-2.452-2.452L14.25 6l1.036-.259a3.375 3.375 0 0 0 2.452-2.452L18 2.25l.259 1.035a3.375 3.375 0 0 0 2.452 2.452L21.75 6l-1.036.259a3.375 3.375 0 0 0-2.452 2.452Z" /></svg>`;
+            const iconCopy = `<svg class="icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 17.25v3.375c0 .621-.504 1.125-1.125 1.125h-9.75a1.125 1.125 0 0 1-1.125-1.125V7.875c0-.621.504-1.125 1.125-1.125H6.75a9.06 9.06 0 0 1 1.5.124m7.5 10.375h3.375c.621 0 1.125-.504 1.125-1.125V11.25c0-4.436-3.47-8.125-7.875-8.125S4.5 6.814 4.5 11.25v6.094A9.06 9.06 0 0 1 6.75 18z" /></svg>`;
+            const iconCheck = `<svg class="icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" /></svg>`;
+
+            // Set ikon awal
+            generateBtn.insertAdjacentHTML('afterbegin', iconGenerate);
+            copyBtn.innerHTML = iconCopy;
+            const originalBtnHTML = generateBtn.innerHTML; // Simpan konten asli tombol
+
+            // --- *** PERUBAHAN UTAMA DI SINI *** ---
+            // Fungsi generate client-side DIHAPUS.
+
+            // --- Event listener untuk tombol Generate (saat form disubmit) ---
+            generatorForm.addEventListener('submit', async (event) => { // 1. Tambahkan 'async'
+                event.preventDefault(); // Mencegah form reload halaman
+                
+                const keyName = keyNameInput.value.trim();
+                
+                // Validasi: Pastikan nama key sudah diisi
+                if (!keyName) {
+                    alert('Harap masukkan "Nama API Key" terlebih dahulu.');
+                    keyNameInput.focus(); // Fokus ke input nama
+                    return;
+                }
+                
+                console.log(`Meminta key baru untuk: ${keyName}`);
+
+                // 2. Tambahkan Loading State
+                generateBtn.disabled = true;
+                generateBtn.innerHTML = 'Generating...'; // Ubah teks tombol
+                keyDisplay.value = ''; // Kosongkan display lama
+
+                try {
+                    // 3. Panggil API Server Anda menggunakan fetch
+                    const response = await fetch('/create', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({ name: keyName }), // Kirim nama sebagai JSON
+                    });
+
+                    // 4. Cek jika response TIDAK OK (misal: error 400, 500)
+                    if (!response.ok) {
+                        const errorData = await response.json(); // Coba ambil pesan error dari server
+                        throw new Error(errorData.error || `Error: ${response.statusText}`);
+                    }
+
+                    // 5. Jika sukses, ambil data JSON
+                    const data = await response.json();
+                    
+                    // 6. Tampilkan API key baru dari server
+                    keyDisplay.value = data.apiKey;
+                    
+                    // Reset tombol copy jika sebelumnya sudah 'copied'
+                    copyBtn.innerHTML = iconCopy;
+                    copyBtn.classList.remove('copied');
+                    copyBtn.title = "Salin ke Clipboard";
+
+                } catch (error) {
+                    // 7. Tangani jika ada error (network atau dari server)
+                    console.error('Gagal membuat key:', error);
+                    alert(`Terjadi kesalahan: ${error.message}`);
+                    keyDisplay.value = 'Gagal memuat key...';
+                } finally {
+                    // 8. Kembalikan tombol ke state semula
+                    generateBtn.disabled = false;
+                    generateBtn.innerHTML = originalBtnHTML; // Kembalikan ikon + teks asli
+                }
+            });
+
+            // --- Event listener untuk tombol Copy ---
+            // (Tidak ada perubahan, kode ini sudah benar)
+            copyBtn.addEventListener('click', () => {
+                const keyToCopy = keyDisplay.value;
+                if (!keyToCopy) return; // Jangan lakukan apa-apa jika input kosong
+
+                navigator.clipboard.writeText(keyToCopy).then(() => {
+                    // Sukses! Beri feedback visual
+                    copyBtn.innerHTML = iconCheck;
+                    copyBtn.classList.add('copied');
+                    copyBtn.title = "Tersalin!";
+                    
+                    // Reset ikon setelah 2 detik
+                    setTimeout(() => {
+                        copyBtn.innerHTML = iconCopy;
+                        copyBtn.classList.remove('copied');
+                        copyBtn.title = "Salin ke Clipboard";
+                    }, 2000);
+
+                }).catch(err => {
+                    console.error('Gagal menyalin:', err);
+                    alert('Gagal menyalin key.');
+                });
+            });
+        });
+    </script>
+
+</body>
+</html>
